@@ -41,11 +41,12 @@ line = 0
 for letter in text:
     if letter == '\n' or letter == '\r':
         line += 1   # 计算行数
+func_dic = {}
 
 
-def advance(l, i):  # 返回当前读入的符号，以及其类别
+def advance(l, i):  # 返回目前行数，当前字符序号，字符，对应类别
     flag = 0  # 区分二项式前后，主要针对数字
-    while text[i] != '\n' or text[i] != '\r':  # 当读到换行符时退出
+    while text[i] != '\n' and text[i] != '\r':  # 当读到换行符时退出
         if text[i] == ' ':
             i += 1
             continue
@@ -104,6 +105,227 @@ def advance(l, i):  # 返回当前读入的符号，以及其类别
                 # print num
             flag += 1
             continue
-    return l+1, cha, numb   # 返回目前行数，字符，对应类别
+    return [l+1, i+1, cha, numb]   # 返回目前行数，当前字符序号，字符，对应类别[]=info。此处使用list方便函数对其进行修改
 
 
+def prog(info):   # 输入是当前行数，当前字符序号,符号，类别(current_line, current_i, sym, n)的list
+    subprog(info)
+
+
+def subprog(info):
+    if info[2] == 'begin':
+        info = advance(info[0], info[1])  # 读入,分别等于list中对应值
+        exptable(info)
+        if info[2] == ';':
+            info = advance(info[0], info[1])
+            exctable(info)
+            if info[2] == 'end':
+                info = advance(info[0], info[1])
+            else:
+                error()
+        else:
+            error()
+    else:
+        error()
+
+
+def error():
+    pass
+
+
+def exptable(info):
+    exp(info)
+    exptable2(info)
+
+
+def exp(info):
+    if info[2] == 'integer':
+        info = advance(info[0], info[1])
+        v(info)
+    else:
+        funcexp(info)
+
+
+def exptable2(info):
+    if info[2] == ';':
+        info = advance(info[0], info[1])
+        exp(info)
+        exptable2(info)
+
+
+def v(info):
+    sym(info)
+
+
+def sym(info):
+    if info[3] == 10:   # 属于标识符类别
+        info = advance(info[0], info[1])
+    else:
+        error()
+
+
+def funcexp(info):
+    if info[2] == 'integer':
+        info = advance(info[0], info[1])
+        if info[2] == 'function':
+            info = advance(info[0], info[1])
+            sym(info)
+            if info[2] == '(':
+                info = advance(info[0], info[1])
+                para(info)
+                if info[2] == ')':
+                    info = advance(info[0], info[1])
+                    if info[2] == ';':
+                        info = advance(info[0], info[1])
+                        entity(info)
+                    else:
+                        error()
+                else:
+                    error()
+            else:
+                error()
+        else:
+            error()
+    else:
+        error()
+
+
+def para(info):
+    v(info)
+
+
+def entity(info):
+    if info[2] == 'begin':
+        info = advance(info[0], info[1])
+        exptable(info)
+        if info[2] == ';':
+            info = advance(info[0], info[1])
+            exctable(info)
+            if info[2] == 'end':
+                info = advance(info[0], info[1])
+            else:
+                error()
+        else:
+            error()
+    else:
+        error()
+
+
+def exctable(info):
+    exc(info)
+    exctable2(info)
+
+
+def exctable2(info):
+    if info[2] == ';':
+        info = advance(info[0], info[1])
+        exc(info)
+        exctable2(info)
+
+
+def exc(info):
+    if info[2] == 'read':
+        info = advance(info[0], info[1])
+        if info[2] =='(':
+            info = advance(info[0], info[1])
+            if info[3] == '10':
+                info = advance(info[0], info[1])
+                if info[2] == ')':
+                    info = advance(info[0], info[1])
+                else:
+                    error()
+            else:
+                error()
+        else:
+            error()
+    elif info[2] == 'write':
+        info = advance(info[0], info[1])
+        if info[2] == '(':
+            info = advance(info[0], info[1])
+            if info[3] == '10':
+                info = advance(info[0], info[1])
+                if info[2] == ')':
+                    info = advance(info[0], info[1])
+                else:
+                    error()
+            else:
+                error()
+        else:
+            error()
+    elif info[3] == 10:
+        info = advance(info[0], info[1])
+        if info[2] == ':=':
+            info = advance(info[0], info[1])
+            arithexpress(info)
+        else:
+            error()
+    elif info[2] == 'if':
+        info = advance(info[0], info[1])
+        cdexpress(info)
+        if info[2] == 'then':
+            info = advance(info[0], info[1])
+            exc(info)
+            if info[2] == 'else':
+                exc(info)
+            else:
+                error()
+        else:
+            error()
+    else:
+        error()
+
+
+def arithexpress(info):
+    term(info)
+    arithexpress2(info)
+
+
+def arithexpress2(info):
+    if info[2] == '-':
+        info = advance(info[0], info[1])
+        term(info)
+        arithexpress2(info)
+
+
+def term(info):
+    factor(info)
+    term2(info)
+
+
+def term2(info):
+    if info[2] == '*':
+        info = advance(info[0], info[1])
+        factor(info)
+        term2(info)
+
+
+def factor(info):
+    if info[3] == 10 and not func_dic.has_key(info[2]): # 此为变量
+        info = advance(info[0], info[1])
+    elif info[3] == 11: # 此为数字
+        info = advance(info[0], info[1])
+    elif info[3] and func_dic.has_key(info[2]): # 此为函数名,且先前已定义(funccall)
+        info = advance(info[0], info[1])
+        if info[2] == '(':
+            info = advance(info[0], info[1])
+            arithexpress(info)
+            if info[2] == ')':
+                info = advance(info[0], info[1])
+            else:
+                error()
+        else:
+            error()
+    else:
+        error()
+
+
+def cdexpress(info):
+    arithexpress(info)
+    relaexpress(info)
+    arithexpress(info)
+
+def relaexpress(info):
+    if info[3] >= 12 and info[3] <= 17:
+        info = advance(info[0], info[1])
+
+prog(advance(l, 0))
