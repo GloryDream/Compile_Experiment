@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding:utf8 -*-
 # TODO(GXY): Recrusive Descent Parser
+# TODO(GXY): Sym()
 
 '''
 prog—> subprog
@@ -31,10 +32,10 @@ unsigned2—> num unsigned2 | 空
 cdexpress—> arithexpress relaexpress arithexpress
 relaexpress—> …
 funcall—> sym(arithexpress)
-'''
 
-import sys
-import string
+
+info[line, i, cha, numb, vproc, vkind, integer, vlev, vadr, pname, ptype, plev, fadr, ladr]
+'''
 
 
 def getvar(ind, character): # 抓取标识符
@@ -70,8 +71,35 @@ text = fp_read.read()
 # 创建相关文件
 variable_table = open('grammar_variable.txt', 'w')
 variable_table.close()
-process_table = open('grammar_process.txt', 'w')   # 创建文件
+process_table = open('grammar_process.txt', 'w')
 process_table.close()
+err = open('grmmar_error.txt','w')
+err.close()
+
+def write_var(info):
+    variable_table = open('grammar_variable.txt', 'a')
+    mes = 'vname: '+info[2]+'\nvproc: '+info[4][-1]+'\nvkind: '+str(info[5]%2)+'\nvtype: '+info[6]\
+    +'\nvlev:'+str(info[7])+'\nvadr: '+str(info[8]/2)+'\n\n'
+    variable_table.write(mes)
+    variable_table.close()
+
+
+def write_proc(info):
+    process_table = open('grammar_process.txt', 'a')
+    mes = 'pname: '+info[9][-1]+'\nptype: '+info[10]+'\nplev: '+str(info[11])+'\nfadr: '+str(info[12])\
+    +'\nladr: '+str(info[13])+'\n\n'
+    process_table.write(mes)
+    process_table.close()
+
+
+def write_error(info, message):
+    err = open('grmmar_error.txt','a')
+    err.write(info[2]+': '+message)
+    err.close()
+
+err_case1 = 'miss symbol.\n'
+err_case2 = 'mismatch.\n'
+err_case3 = 'no define or repeat define.\n'
 
 # 对读取进来的文件相关参数设置
 seq_num = 0   # 字符序号
@@ -81,9 +109,10 @@ for letter in text:
     if letter == '\n' or letter == '\r':
         line += 1   # 计算行数
 func_dic = {}
+variable_dic = {}
 
 
-def advance(info):  # 将新字符相关信息读入info，info第五位为变量定义标志位，第六位
+def advance(info):  # 将新字符相关信息读入info，info第五位为变量定义标志位（奇数时为变量说明），第六位
     l, i = info[0], info[1]
     flag = 0  # 区分二项式前后，主要针对数字
     while text[i] != '\n' and text[i] != '\r':  # 当读到换行符时退出
@@ -145,7 +174,7 @@ def advance(info):  # 将新字符相关信息读入info，info第五位为变�
                 # print num
             flag += 1
             continue
-    info[0], info[1], info[2], info[3] = l+1, i+1, cha, numb    # 返回目前行数，当前字符序号，字符，对应类别[]=info。此处使用list方便函数对其进行修改
+    info[0], info[1], info[2], info[3] = l+1, i+1, cha, int(numb)    # 返回目前行数，当前字符序号，字符，对应类别[]=info。此处使用list方便函数对其进行修改
 
 
 def prog(info):   # 输入是当前行数，当前字符序号,符号，类别(current_line, current_i, sym, n)的list
@@ -155,22 +184,28 @@ def prog(info):   # 输入是当前行数，当前字符序号,符号，类别(c
 def subprog(info):
     if info[2] == 'begin':
         advance(info)  # 读入,分别等于list中对应值
+        info[7] += 1  # begin开始后深度加1
+        info[11] += 1  # begin开始后深度加1
         exptable(info)
         if info[2] == ';':
             advance(info)
             exctable(info)
             if info[2] == 'end':
                 advance(info)
+                info[7] -= 1  # end后深度减1
+                info[11] -= 1  # end后深度减1
+                if info[2] == 'EOF':
+                    print 'Success with EOF'
             else:
-                error()
+                error(info)
         else:
-            error()
+            error(info)
     else:
-        error()
+        error(info)
 
 
-def error():
-    print 'error'
+def error(word):
+    print ' error'
 
 
 def exptable(info):
@@ -183,14 +218,16 @@ def exp(info):  # 说明语句
         advance(info)
         exp_term(info)
     else:
-        error()
+        error(info)
 
 
 def exp_term(info):
     if info[3] == 10:   # 是标识符，那么此时肯定是v
+        info[8] += 1  # 标志着定义变量,在完成定义后会+1
         v(info)
     elif info[2] == 'function':
         advance(info)
+        info[15] += 1   # padr 加1，函数定义状态
         sym(info)
         if info[2] == '(':
             advance(info)
@@ -201,52 +238,98 @@ def exp_term(info):
                     advance(info)
                     entity(info)
                 else:
-                    error()
+                    error(info)
             else:
-                error()
+                error(err_case2)
         else:
-            error()
+            error(info)
     else:
-        error()
+        error(info)
 
 
 def exptable2(info):
-    if info[2] == ';':
+    info_term = info[:]
+    advance(info_term)
+    info_ahead = info_term[:]
+    if info[2] == ';' and info_ahead[2] == 'integer':
         advance(info)
         exp(info)
         exptable2(info)
 
 
 def v(info):
+    info[14] = 1    # vflag=1   用于确定这是一个变量
     sym(info)
+    info[14] = 0    # 重置
 
 
 def sym(info):
     if info[3] == 10:   # 属于标识符类别
+        if info[14] == 1:   # vflag=1
+            info[14] = 0    # 重置vflag=0
+            if (not variable_dic.has_key(info[2])) and info[8] % 2 == 1:  # 表内没有该变量，且处于定义状态(奇数)
+                info[8] += 1  # 完成定义
+                write_var(info)
+                variable_dic[info[2]]=info[5]   # dic vname-->vkind
+            elif variable_dic.has_key(info[2]) and info[8] % 2 == 1 and info[5] == variable_dic[info[2]]:  # 字典中有该变量，处于
+                # 定义状态，且vkind同，重复定义
+                write_error(info, err_case3)
+                info[8] += 1  # 完成定义
+            elif (not variable_dic.has_key(info[2])) and info[8] % 2 != 1 and info[5] != 3:  # 表内没有该变量，且没有定义状态,且不是声明内形参：未定义
+                write_error(info,err_case3)
+            elif (not variable_dic.has_key(info[2])) and info[8] % 2 != 1 and info[5] == 3 and info[15] % 2 == 1:  # 表内没有该变量，且没有定义状态,但是是声明内形参,处于函数定义状态
+                info[15] += 1  # 完成函数定义
+            elif (not variable_dic.has_key(info[2])) and info[8] % 2 != 1 and info[5] == 3 and info[15] % 2 != 1:  # 表内没有该变量，且没有定义状态,但是是声明内形参,未处于函数定义状态
+                write_error(info,err_case3)
+            elif variable_dic.has_key(info[2]) and info[8] % 2 == 1 and info[5] ==3:   # 字典中有该变量，未处于
+                # 定义状态，但是是声明内形参
+                pass
+            elif variable_dic.has_key(info[2]) and info[8] % 2 == 1 and info[5] != variable_dic[info[2]] and info[5] !=3:   # 字典中有该变量，未处于
+                # 定义状态，vkind不同，但是非声明内形参
+                info[8] += 1  # 完成定义
+                write_var(info)
+                variable_dic[info[2]] = info[5]  # dic vname-->vkind
+        else:  # 是函数名
+            if info[15] % 2 == 1:   # 处于函数定义状态
+                info[4].append(info[2])  # 当前函数入栈
+                info[9].append(info[2])  # 当前函数入栈
+                write_proc(info)    # 写入函数
+                # info[15] += 1   # 完成函数定义
+                func_dic[info[2]] = info[15]
+            elif info[15] % 2 == 0:  # 非函数定义状态
+                pass
+
         advance(info)
     else:
-        error()
+        error(info)
 
 
 def para(info):
+    info[5] = 3  # 设置该变量为形参
     v(info)
 
 
 def entity(info):
     if info[2] == 'begin':
         advance(info)
-        exptable(info)
+        info[7] += 1    # begin开始后深度加1 vlev
+        info[11] += 1   # begin开始后深度加1 plev
+        exptable(info)      # 说明语句表
         if info[2] == ';':
             advance(info)
-            exctable(info)
+            exctable(info)  # 执行语句表
             if info[2] == 'end':
                 advance(info)
+                info[7] -= 1    # end后深度减1  vlev
+                info[11] -= 1  # end后深度减1   plev
+                info[4].pop()   # 函数出栈
+                info[9].pop()
             else:
-                error()
+                error(info)
         else:
-            error()
+            error(info)
     else:
-        error()
+        error(info)
 
 
 def exctable(info):
@@ -263,35 +346,38 @@ def exctable2(info):
 
 def exc(info):
     if info[2] == 'read':
+        info[4].append(info[2])     # 将read加入过程
         advance(info)
         if info[2] =='(':
             advance(info)
             v(info)
             if info[2] == ')':
+                info[4].pop()   # 退出read状态
                 advance(info)
             else:
-                error()
+                error(info)
         else:
-            error()
+            error(info)
     elif info[2] == 'write':
+        info[4].append(info[2])  # 将write加入过程
         advance(info)
         if info[2] == '(':
             advance(info)
             v(info)
-            advance(info)
             if info[2] == ')':
+                info[4].pop()  # 退出write状态
                 advance(info)
             else:
-                error()
+                error(info)
         else:
-            error()
-    elif info[3] == 10: # v()
+            error(info)
+    elif info[3] == 10:
         v(info)
         if info[2] == ':=':
             advance(info)
             arithexpress(info)
         else:
-            error()
+            error(info)
     elif info[2] == 'if':
         advance(info)
         cdexpress(info)
@@ -299,13 +385,14 @@ def exc(info):
             advance(info)
             exc(info)
             if info[2] == 'else':
+                advance(info)
                 exc(info)
             else:
-                error()
+                error(info)
         else:
-            error()
+            error(info)
     else:
-        error()
+        error(info)
 
 
 def arithexpress(info):
@@ -345,11 +432,11 @@ def factor(info):
             if info[2] == ')':
                 advance(info)
             else:
-                error()
+                error(info)
         else:
-            error()
+            error(info)
     else:
-        error()
+        error(info)
 
 
 def cdexpress(info):
@@ -361,6 +448,9 @@ def relaexpress(info):
     if info[3] >= 12 and info[3] <= 17:
         advance(info)
     else:
-        error()
+        error(info)
 
-prog([1, 0, 'initial', 'initial', 0, 0])
+initial = [1, 0, 'initial', 'initial', ['main'], 0, 'integer', 0, 0, ['main'], 'integer', 1, 0, 0, 0, 0]
+advance(initial)
+write_proc(initial)
+prog(initial)
