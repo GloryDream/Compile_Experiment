@@ -94,9 +94,9 @@ def write_error(info, message):
     err.write(info[2]+': '+message)
     err.close()
 
-err_case1 = 'miss symbol.\n'
-err_case2 = 'mismatch.\n'
-err_case3 = 'no define or repeat define.\n'
+err_case1 = '<miss symbol>.\n'
+err_case2 = '<mismatch>.\n'
+err_case3 = '<no define or repeat define>.\n'
 
 # 对读取进来的文件相关参数设置
 seq_num = 0   # 字符序号
@@ -219,7 +219,7 @@ def exp(info):  # 说明语句
         advance(info)
         exp_term(info)
     else:
-        error(info)
+        error('without integer '+err_case1)
 
 
 def exp_term(info):
@@ -401,7 +401,7 @@ def exc(info):
             else:
                 error('without else '+err_case2)
         else:
-            error('without then'+err_case2)
+            error('without then '+err_case2)
     else:
         error(err_case1)
 
