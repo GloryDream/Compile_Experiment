@@ -93,6 +93,7 @@ def write_error(info, message):
     err = open('grmmar_error.txt','a')
     err.write(info[2]+': '+message)
     err.close()
+    # exit()  # 仅报一个错误
 
 err_case1 = '<miss symbol>.\n'
 err_case2 = '<mismatch>.\n'
